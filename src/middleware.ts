@@ -1,5 +1,4 @@
 import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 export const config = {
   matcher: [
@@ -16,18 +15,10 @@ const corHeaders = {
   "Access-Control-Allow-Headers": "*",
 };
 
-const isProtectedRoute = createRouteMatcher([
-  // FIXME:
-  "/app",
-  "/app(.*)",
-  "/app/(.*)", // Protect all app routes
-  "!/", // Exclude landing page
-  "!/login", // Exclude login page
-]);
 
 export default function middleware(
   request: NextRequest,
-  event: NextFetchEvent
+  _event: NextFetchEvent
 ) {
   // Handle CORS preflight requests
   if (request.method === "OPTIONS") {
@@ -38,15 +29,5 @@ export default function middleware(
       }
     );
   }
-
-  // Handle authentication
-  const clerkMiddlwareRunner = clerkMiddleware(async (auth) => {
-    // Protect private routes
-    const { redirectToSignIn, userId } = await auth();
-    if (!userId && isProtectedRoute(request)) {
-      return redirectToSignIn();
-    }
-  });
-
-  return clerkMiddlwareRunner(request, event);
+  return NextResponse.next()
 }
