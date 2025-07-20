@@ -37,6 +37,7 @@ export const LabellingView = (props: LabellingViewProps) => {
           return {
             ...img,
             groundTruth: bboxes,
+            isDone: true,
           };
         }) ?? []
       );
@@ -87,7 +88,9 @@ export const LabellingView = (props: LabellingViewProps) => {
         <ImageLabeller
           selectedImageFile={selectedImage?.file}
           bboxs={bboxs}
+          showDoneButton={!selectedImage?.isDone}
           onBboxChange={setBboxs}
+          onMarkDone={() => onSaveBbox(bboxs)}
           onNext={onNext}
           onPrev={onPrev}
         />

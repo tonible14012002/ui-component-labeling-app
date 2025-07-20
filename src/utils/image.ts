@@ -49,7 +49,6 @@ export const resizeBase64Image = async (
       resolve(canvas.toDataURL("image/jpeg", 0.8));
     };
   });
-  console.log("Resized image to", width, height);
 
   return newBase64Img as string;
 };

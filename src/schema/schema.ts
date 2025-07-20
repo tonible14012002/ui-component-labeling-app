@@ -21,6 +21,11 @@ export type IImageFile = {
   extension?: string;
 };
 
+export type DetectionResponse = {
+  detection: LLMBBoxResponse[];
+  // describe: string;
+}
+
 export type LLMBBoxResponse = {
   x: number;
   y: number;
@@ -30,8 +35,11 @@ export type LLMBBoxResponse = {
   value: string;
   author: "llm";
   score: number;
+  reasoning?: string;
 }
 
 export type DetectRequestBody = {
+  width: number;
+  height: number;
   imageUrl: string
 }

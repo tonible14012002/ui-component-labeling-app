@@ -10,8 +10,16 @@ interface ImageItemProps extends IImageFile {
 }
 
 export const ImageItem = (props: ImageItemProps) => {
-  const { name, onClick, extension, size, isSelected, tempBbox, groundTruth } =
-    props;
+  const {
+    name,
+    onClick,
+    extension,
+    size,
+    isSelected,
+    tempBbox,
+    groundTruth,
+    isDone,
+  } = props;
 
   const handleClick = () => {
     onClick?.(name);
@@ -35,7 +43,12 @@ export const ImageItem = (props: ImageItemProps) => {
         </p>
       </div>
       <div className="flex gap-2 mt-1.5">
-        <Badge variant="secondary">
+        {isDone && (
+          <Badge>
+            Done
+          </Badge>
+        )}
+        <Badge variant="outline" className="bg-background">
           {tempBbox ? tempBbox.length : groundTruth?.length} labels
         </Badge>
       </div>

@@ -1,20 +1,9 @@
 import { Badge } from "@/components/ui/badge";
-import {
-  DEFAULT_UI_TAGS,
-  DEFAULT_UI_TAGS_ARRAY,
-  getUiLabel,
-} from "@/constants/label";
+import { DEFAULT_UI_TAGS, getUiLabel } from "@/constants/label";
 import { cn, createGenId } from "@/lib/utils";
 import { IBbox } from "@/schema/schema";
 import { XIcon } from "lucide-react";
-import {
-  KeyboardEventHandler,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { detectionService } from "@/apis/detection";
 import { TagSelectorBar } from "./TagSelectorBar1";
 import { stringToDownloadFile } from "@/utils/file";
@@ -23,6 +12,7 @@ import { MODE } from "./const";
 import { useLabellerKeyBinding } from "./useKeyBinding";
 import { useResponsiveCanvas } from "./useResponsiveCanvas";
 import { getScaleFitImageToViewport, resizeBase64Image } from "@/utils/image";
+import { Button } from "@/components/ui/button";
 
 interface ImageLabellerProps {
   selectedImageFile?: File;
@@ -31,6 +21,8 @@ interface ImageLabellerProps {
   onBboxChange?: (bboxs: IBbox[]) => void;
   onNext?: () => void;
   onPrev?: () => void;
+  onMarkDone?: () => void;
+  showDoneButton?: boolean;
 }
 
 type ModeType = (typeof MODE)[keyof typeof MODE];
@@ -38,8 +30,16 @@ type ModeType = (typeof MODE)[keyof typeof MODE];
 const bboxIdGen = createGenId();
 
 export const ImageLabeller = (props: ImageLabellerProps) => {
-  const { selectedImageFile, bboxs, onBboxChange, name, onNext, onPrev } =
-    props;
+  const {
+    selectedImageFile,
+    bboxs,
+    onBboxChange,
+    name,
+    onNext,
+    onPrev,
+    onMarkDone,
+    showDoneButton,
+  } = props;
   const [activeTag, setActiveTag] = useState<string>(
     DEFAULT_UI_TAGS.BUTTON.value
   );
@@ -205,7 +205,7 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
 
       // Label background
       ctx.fillStyle = getUiLabel(box.value).color;
-      const label = `${box.label}_${index} (${Math.round(
+      const label = `${box.label}_${index + 1} (${Math.round(
         (box.score || 0) * 100
       )}%)`;
       const labelWidth = ctx.measureText(label).width + 8;
@@ -321,14 +321,18 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
     if (!selectedImageFile) {
       return;
     }
+
+    console.log("Running detection on:", selectedImageFile.name);
+
     const reader = new FileReader();
     reader.onload = async (_) => {
       const base64Str = reader.result as string;
+
       const MAX_VIEW_PORT = {
         width: 512,
         height: 512,
       };
-      const { scale } = getScaleFitImageToViewport({
+      const { scale: resizeScale } = getScaleFitImageToViewport({
         imgSize: {
           width: imgNaturalSize.width,
           height: imgNaturalSize.height,
@@ -338,19 +342,31 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
 
       const resizedImgUrl = await resizeBase64Image(
         base64Str,
-        imgNaturalSize.width * scale,
-        imgNaturalSize.height * scale
+        imgNaturalSize.width * resizeScale,
+        imgNaturalSize.height * resizeScale
       );
 
-      const resp = await detectionService.detect(resizedImgUrl as string);
-      const detectedBboxes = resp.data.map(
+      const resp = await detectionService.detect(
+        resizedImgUrl as string,
+        imgNaturalSize.width * resizeScale,
+        imgNaturalSize.height * resizeScale
+      );
+
+      stringToDownloadFile(resizedImgUrl as string, "image.txt");
+      console.log("Detection response:", {
+        naturalSize: imgNaturalSize,
+        resizeScale: resizeScale,
+        data: resp.data,
+      });
+
+      const detectedBboxes = resp.data.detection.map(
         (box) =>
           ({
             key: String(bboxIdGen()),
-            x: box.x / scale,
-            y: box.y / scale,
-            width: box.width / scale,
-            height: box.height / scale,
+            x: box.x / resizeScale,
+            y: box.y / resizeScale,
+            width: box.width / resizeScale,
+            height: box.height / resizeScale,
             label: box.label,
             value: box.value,
             author: "llm",
@@ -434,14 +450,23 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
           activeTag={activeTag}
           onSelectTag={handleSelectTag}
         />
-        <div className="pb-1 text-center">
+        <div className="pb-1 flex items-baseline justify-between">
           <span className="text-sm text-muted-foreground">
             Image size: {imgNaturalSize.width}x{imgNaturalSize.height}
             <span className="ml-2">Scale: {(scale * 100).toFixed(0)}%</span>
           </span>
+          {showDoneButton && (
+            <Button
+              className="-my-3 ml-3 rounded-b-none"
+              size="sm"
+              onClick={onMarkDone}
+            >
+              Mark as Done
+            </Button>
+          )}
         </div>
         <div
-          className={cn("relative flex-1 bg-accent overflow-hidden")}
+          className={cn("relative flex-1 bg-accent overflow-hidden border")}
           ref={viewportRef}
         >
           <canvas
@@ -491,7 +516,7 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
               className="cursor-pointer"
               onClick={() => handleRemoveBox(box.key)}
             >
-              {box.label}_{index} ({Math.round((box.score || 0) * 100)}%)
+              {box.label}_{index + 1} ({Math.round((box.score || 0) * 100)}%)
               <div
                 className="h-2 w-2 rounded-full ml-1"
                 style={{ backgroundColor: getUiLabel(box.value).color }}

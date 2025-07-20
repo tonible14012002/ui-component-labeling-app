@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Ajv, { JSONSchemaType } from "ajv";
-import { DetectRequestBody, LLMBBoxResponse } from "@/schema/schema";
+import { DetectionResponse, DetectRequestBody } from "@/schema/schema";
 import { gpt } from "@/_backend/lib/gpt";
 import { ResponseWithData } from "@/schema/response";
 import { ErrorResponse } from "@/schema/error";
@@ -9,8 +9,10 @@ const postSchema: JSONSchemaType<DetectRequestBody> = ({
     type: "object",
     properties: {
         imageUrl: { type: "string" },
+        width: { type: "number" },
+        height: { type: "number" },
     },
-    required: ["imageUrl"],
+    required: ["imageUrl", "width", "height"],
     additionalProperties: false,
 })
 
@@ -21,11 +23,11 @@ export const POST = async (request: NextRequest) => {
         const body = await request.json();
         const validator = new Ajv().compile(postSchema);
         if (validator(body)) {
-            const detections = await gpt.detectImage(body.imageUrl);
+            const detections = await gpt.detectImage(body.imageUrl, body.width, body.height);
             return NextResponse.json({
                 data: detections,
                 status: 200,
-            } as ResponseWithData<LLMBBoxResponse[]>,
+            } as ResponseWithData<DetectionResponse>,
             {
                 status: 200,
             })
