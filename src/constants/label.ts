@@ -1,4 +1,4 @@
-export const DEFAULT_UI_LABELS = {
+export const DEFAULT_UI_TAGS = {
   BUTTON: {
     label: "Button",
     value: "button",
@@ -21,11 +21,11 @@ export const DEFAULT_UI_LABELS = {
   },
 };
 
-export const DEFAULT_UI_LABELS_ARRAY = Object.values(DEFAULT_UI_LABELS);
+export const DEFAULT_UI_TAGS_ARRAY = Object.values(DEFAULT_UI_TAGS);
 
 export const getUiLabel = (value: string) => {
   return (
-    DEFAULT_UI_LABELS_ARRAY.find((label) => label.value === value) ||
-    DEFAULT_UI_LABELS.BUTTON
+    DEFAULT_UI_TAGS_ARRAY.find((label) => label.value === value) ||
+    DEFAULT_UI_TAGS.BUTTON
   );
 };

@@ -1,32 +1,18 @@
 import { Badge } from "@/components/ui/badge";
-import {
-  DEFAULT_UI_LABELS,
-  DEFAULT_UI_LABELS_ARRAY,
-  getUiLabel,
-} from "@/constants/label";
-import { cn } from "@/lib/utils";
+import { DEFAULT_UI_TAGS, getUiLabel } from "@/constants/label";
+import { cn, createGenId } from "@/lib/utils";
 import { IBbox } from "@/schema/schema";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  Crosshair,
-  HandIcon,
-  SquareDashedMousePointer,
-  Trash,
-  XIcon,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
-import {
-  KeyboardEventHandler,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { XIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { detectionService } from "@/apis/detection";
+import { TagSelectorBar } from "./TagSelectorBar1";
+import { stringToDownloadFile } from "@/utils/file";
+import { LabellerToolbar } from "./LabellerToolbar";
+import { MODE } from "./const";
+import { useLabellerKeyBinding } from "./useKeyBinding";
+import { useResponsiveCanvas } from "./useResponsiveCanvas";
+import { getScaleFitImageToViewport, resizeBase64Image } from "@/utils/image";
 import { Button } from "@/components/ui/button";
-import { createIdGenerator } from "@/utils/id";
 
 interface ImageLabellerProps {
   selectedImageFile?: File;
@@ -35,21 +21,27 @@ interface ImageLabellerProps {
   onBboxChange?: (bboxs: IBbox[]) => void;
   onNext?: () => void;
   onPrev?: () => void;
+  onMarkDone?: () => void;
+  showDoneButton?: boolean;
 }
 
-const MODE = {
-  SELECT: "select",
-  PAN: "pan",
-};
 type ModeType = (typeof MODE)[keyof typeof MODE];
 
-const { gen: bboxIdGen } = createIdGenerator("_");
+const bboxIdGen = createGenId();
 
 export const ImageLabeller = (props: ImageLabellerProps) => {
-  const { selectedImageFile, bboxs, onBboxChange, name, onNext, onPrev } =
-    props;
-  const [activeLabel, setActiveLabel] = useState<string>(
-    DEFAULT_UI_LABELS.BUTTON.value
+  const {
+    selectedImageFile,
+    bboxs,
+    onBboxChange,
+    name,
+    onNext,
+    onPrev,
+    onMarkDone,
+    showDoneButton,
+  } = props;
+  const [activeTag, setActiveTag] = useState<string>(
+    DEFAULT_UI_TAGS.BUTTON.value
   );
   const [currentMode, setCurrentMode] = useState<ModeType>(MODE.SELECT);
   const [isDragging, setIsDragging] = useState(false);
@@ -62,6 +54,8 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
     x: 0,
     y: 0,
   });
+
+  // current drawing box
   const currentBoxPos = useRef<{
     x: number;
     y: number;
@@ -97,13 +91,57 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
   });
   const imgWrapperRef = useRef<HTMLDivElement | null>(null);
 
-  const handleImageLoad = useCallback((image: HTMLImageElement) => {
-    setImgNaturalSize({
-      width: image.naturalWidth,
-      height: image.naturalHeight,
-    });
-    setLoaded(true);
-  }, []);
+  const hanldeAdjustScaleCenter = useCallback(
+    (imgNaturalSize: { width: number; height: number }) => {
+      if (!viewportRef.current || !imgWrapperRef.current) return;
+      const viewPortSize = viewportRef.current.getBoundingClientRect();
+      const { isFitHorizontal, scale: newScale } = getScaleFitImageToViewport({
+        imgSize: imgNaturalSize,
+        viewPortSize: {
+          width: viewPortSize.width,
+          height: viewPortSize.height,
+        },
+      });
+
+      if (isFitHorizontal) {
+        setScale(newScale);
+        // center horizontally
+        imgPos.current.x =
+          viewPortSize.width / 2 - (imgNaturalSize.width * newScale) / 2;
+        imgPos.current.y =
+          (viewPortSize.height - imgNaturalSize.height * newScale) / 2;
+
+        imgWrapperRef.current.style.left = `${imgPos.current.x}px`;
+        imgWrapperRef.current.style.top = `${imgPos.current.y}px`;
+      } else {
+        setScale(newScale);
+        // center vertically
+        imgPos.current.y =
+          (viewPortSize.height - imgNaturalSize.height * newScale) / 2;
+        imgPos.current.x =
+          (viewPortSize.width - imgNaturalSize.width * newScale) / 2;
+        imgWrapperRef.current.style.left = `${imgPos.current.x}px`;
+        imgWrapperRef.current.style.top = `${imgPos.current.y}px`;
+      }
+    },
+    []
+  );
+
+  const handleImageLoad = useCallback(
+    (image: HTMLImageElement) => {
+      setImgNaturalSize({
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+      setLoaded(true);
+      // On First Load scale to fit the image
+      hanldeAdjustScaleCenter({
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+    },
+    [hanldeAdjustScaleCenter]
+  );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -167,7 +205,9 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
 
       // Label background
       ctx.fillStyle = getUiLabel(box.value).color;
-      const label = `${box.label}_${index} (${Math.round((box.score || 0) * 100)}%)`;
+      const label = `${box.label}_${index + 1} (${Math.round(
+        (box.score || 0) * 100
+      )}%)`;
       const labelWidth = ctx.measureText(label).width + 8;
       ctx.fillRect(box.x, box.y - 20, labelWidth, 20);
 
@@ -178,7 +218,7 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
     });
     // Draw current box being drawn
     if (isDrawing) {
-      ctx.strokeStyle = getUiLabel(activeLabel).color;
+      ctx.strokeStyle = getUiLabel(activeTag).color;
       ctx.lineWidth = 2 / scale;
       ctx.setLineDash([]);
       ctx.strokeRect(
@@ -189,7 +229,7 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
       );
     }
     ctx.restore();
-  }, [imageUrl, scale, bboxs, isDrawing, activeBbox?.key, activeLabel]);
+  }, [imageUrl, scale, bboxs, isDrawing, activeBbox?.key, activeTag]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -202,19 +242,19 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
     ) {
       // Save the drawn box
       const newBox: IBbox = {
-        key: bboxIdGen(),
+        key: String(bboxIdGen()),
         x: currentBoxPos.current.x,
         y: currentBoxPos.current.y,
         width: currentBoxPos.current.w,
         height: currentBoxPos.current.h,
-        value: activeLabel,
-        label: getUiLabel(activeLabel).label,
+        value: activeTag,
+        label: getUiLabel(activeTag).label,
         author: "manual",
         score: 1,
       };
       onBboxChange?.([...(bboxs ?? []), newBox]);
     }
-  }, [activeLabel, bboxs, isDrawing, onBboxChange]);
+  }, [activeTag, bboxs, isDrawing, onBboxChange]);
 
   const handleMouseMove: EventListener = useCallback(
     (e) => {
@@ -239,9 +279,8 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
 
         imgWrapperRef.current.style.top = `${newTop}px`;
         imgWrapperRef.current.style.left = `${newLeft}px`;
-
-        imgPos.current.x = initLeft + moveX;
-        imgPos.current.y = initTop + moveY;
+        imgPos.current.x = newLeft;
+        imgPos.current.y = newTop;
 
         prevMousePosRef.current = {
           x: clientX,
@@ -269,12 +308,7 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
   };
 
   const handleResetPosition = () => {
-    setScale(1);
-    if (imgWrapperRef.current) {
-      imgWrapperRef.current.style.top = "0px";
-      imgWrapperRef.current.style.left = "0px";
-      imgPos.current = { x: 0, y: 0 };
-    }
+    hanldeAdjustScaleCenter(imgNaturalSize);
     drawBoxes();
   };
 
@@ -283,22 +317,78 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
     onBboxChange?.(newBboxs ?? []);
   };
 
-  const handleKeyBindings: KeyboardEventHandler<HTMLCanvasElement> = (e) => {
-    if (e.key === "Escape") {
-      setIsDrawing(false);
-      setIsDragging(false);
-      setActiveBbox(null);
+  const handleDetection = () => {
+    if (!selectedImageFile) {
       return;
     }
-    // 1-9 to select label
-    if (e.key >= "1" && Number(e.key) <= DEFAULT_UI_LABELS_ARRAY.length) {
-      const index = parseInt(e.key, 10) - 1;
-      if (index < DEFAULT_UI_LABELS_ARRAY.length) {
-        setActiveLabel(DEFAULT_UI_LABELS_ARRAY[index].value);
-      }
-      return;
-    }
+
+    console.log("Running detection on:", selectedImageFile.name);
+
+    const reader = new FileReader();
+    reader.onload = async (_) => {
+      const base64Str = reader.result as string;
+
+      const MAX_VIEW_PORT = {
+        width: 512,
+        height: 512,
+      };
+      const { scale: resizeScale } = getScaleFitImageToViewport({
+        imgSize: {
+          width: imgNaturalSize.width,
+          height: imgNaturalSize.height,
+        },
+        viewPortSize: MAX_VIEW_PORT,
+      });
+
+      const resizedImgUrl = await resizeBase64Image(
+        base64Str,
+        imgNaturalSize.width * resizeScale,
+        imgNaturalSize.height * resizeScale
+      );
+
+      const resp = await detectionService.detect(
+        resizedImgUrl as string,
+        imgNaturalSize.width * resizeScale,
+        imgNaturalSize.height * resizeScale
+      );
+
+      stringToDownloadFile(resizedImgUrl as string, "image.txt");
+      console.log("Detection response:", {
+        naturalSize: imgNaturalSize,
+        resizeScale: resizeScale,
+        data: resp.data,
+      });
+
+      const detectedBboxes = resp.data.detection.map(
+        (box) =>
+          ({
+            key: String(bboxIdGen()),
+            x: box.x / resizeScale,
+            y: box.y / resizeScale,
+            width: box.width / resizeScale,
+            height: box.height / resizeScale,
+            label: box.label,
+            value: box.value,
+            author: "llm",
+            score: box.score,
+          } as IBbox)
+      );
+      onBboxChange?.([...(bboxs ?? []), ...detectedBboxes]);
+    };
+
+    reader.readAsDataURL(selectedImageFile);
   };
+
+  const handleSelectTag = useCallback(
+    (tag: string) => {
+      setActiveTag(tag);
+      // Click on label switch to drawing mode
+      if (!isDrawing) {
+        setCurrentMode(MODE.SELECT);
+      }
+    },
+    [isDrawing]
+  );
 
   useEffect(() => {
     if (!loaded) return;
@@ -315,8 +405,12 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
     };
   }, [handleMouseMove, handleMouseUp, imageUrl]);
 
-  // Revoke Image if not used
   useEffect(() => {
+    // reset
+    setLoaded(false);
+    setIsDragging(false);
+    setIsDrawing(false);
+
     return () => {
       if (imageUrl) {
         URL.revokeObjectURL(imageUrl); // Clean up the object URL when the component unmounts or image changes
@@ -324,102 +418,58 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
     };
   }, [imageUrl]);
 
-  useEffect(() => {
-    // reset
-    setLoaded(false);
-    setIsDragging(false);
-    setScale(1);
-    setIsDrawing(false);
-    if (imgWrapperRef.current) {
-      imgWrapperRef.current.style.top = "0px";
-      imgWrapperRef.current.style.left = "0px";
-      imgPos.current = { x: 0, y: 0 };
-    }
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext("2d");
-      if (ctx) {
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      }
-    }
-  }, [imageUrl, imgWrapperRef]);
+  useResponsiveCanvas({
+    canvasRef: canvasRef,
+    viewportRef: viewportRef,
+    drawFunc: drawBoxes,
+  });
 
-  useEffect(() => {
-    if (!viewportRef.current || !canvasRef.current) return;
-
-    const updateCanvasSize = () => {
-      canvasRef.current!.width = viewportRef.current!.clientWidth;
-      canvasRef.current!.height = viewportRef.current!.clientHeight;
-    }
-
-    updateCanvasSize();
-    const viewportResizeObserver = new ResizeObserver(() => {
-      updateCanvasSize();
-    });
-
-    viewportResizeObserver.observe(viewportRef.current);
-
-    return () => {
-      viewportResizeObserver.disconnect();
-    };
-
-  }, []);
+  useLabellerKeyBinding({
+    currentMode,
+    setCurrentMode,
+    isDrawing,
+    onSelectTag: handleSelectTag,
+  });
 
   return (
     <div className="w-full h-full flex">
-      <div className="flex flex-col items-center pt-16 w-8 gap-3 mr-6 rounded-l-lg ml-1">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setScale((prev) => Math.min(prev + 0.1, 8))}
-        >
-          <ZoomIn size={14} />
-        </Button>
-
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setScale((prev) => Math.max(prev - 0.1, 0.1))}
-        >
-          <ZoomOut size={14} />
-        </Button>
-
-        <Button variant="outline" size="icon" onClick={handleResetPosition}>
-          <Crosshair size={14} />
-        </Button>
-
-        <Button
-          size="icon"
-          variant={currentMode === MODE.PAN ? "default" : "outline"}
-          onClick={() => setCurrentMode(MODE.PAN)}
-        >
-          <HandIcon size={14} />
-        </Button>
-        <Button
-          size="icon"
-          variant={currentMode === MODE.SELECT ? "default" : "outline"}
-          onClick={() => setCurrentMode(MODE.SELECT)}
-        >
-          <SquareDashedMousePointer size={14} />
-        </Button>
-        <Button variant="destructive" size="icon" onClick={handleReset}>
-          <Trash size={14} />
-        </Button>
-      </div>
+      <LabellerToolbar
+        handleDetection={handleDetection}
+        handleReset={handleReset}
+        handleResetPosition={handleResetPosition}
+        setCurrentMode={setCurrentMode}
+        currentMode={currentMode}
+        onScaleDown={() => setScale((prev) => Math.max(prev - 0.1, 0.1))}
+        onScaleUp={() => setScale((prev) => Math.min(prev + 0.1, 8))}
+      />
 
       <div className="flex-1 h-full flex flex-col">
-        <LabellerToolbar
+        <TagSelectorBar
           onNext={onNext}
           onPrev={onPrev}
-          activeLabel={activeLabel}
-          onSelectLabel={setActiveLabel}
+          activeTag={activeTag}
+          onSelectTag={handleSelectTag}
         />
+        <div className="pb-1 flex items-baseline justify-between">
+          <span className="text-sm text-muted-foreground">
+            Image size: {imgNaturalSize.width}x{imgNaturalSize.height}
+            <span className="ml-2">Scale: {(scale * 100).toFixed(0)}%</span>
+          </span>
+          {showDoneButton && (
+            <Button
+              className="-my-3 ml-3 rounded-b-none"
+              size="sm"
+              onClick={onMarkDone}
+            >
+              Mark as Done
+            </Button>
+          )}
+        </div>
         <div
-          className={cn("relative flex-1 bg-accent overflow-hidden")}
+          className={cn("relative flex-1 bg-accent overflow-hidden border")}
           ref={viewportRef}
         >
           <canvas
-            // key={String(viewportSize.x) + String(viewportSize.y)}
-            onKeyDown={handleKeyBindings}
             onMouseDown={handleMouseDown}
             ref={canvasRef}
             className={cn("absolute left-0 top-0 z-30")}
@@ -442,7 +492,14 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
                   width: imgNaturalSize.width,
                   height: imgNaturalSize.height,
                 }}
-                className="pointer-events-none object-none"
+                className={cn(
+                  "pointer-events-none object-none transition-opacity",
+                  {
+                    // avoid showing flick during resizing img
+                    "opacity-0": !loaded,
+                    "opacity-100": loaded,
+                  }
+                )}
                 src={imageUrl}
                 alt={name || "Selected Image"}
               />
@@ -459,7 +516,7 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
               className="cursor-pointer"
               onClick={() => handleRemoveBox(box.key)}
             >
-              {box.label}_{index} ({Math.round((box.score || 0) * 100)}%)
+              {box.label}_{index + 1} ({Math.round((box.score || 0) * 100)}%)
               <div
                 className="h-2 w-2 rounded-full ml-1"
                 style={{ backgroundColor: getUiLabel(box.value).color }}
@@ -469,47 +526,6 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
           ))}
         </div>
       </div>
-    </div>
-  );
-};
-
-interface LabellerToolbarProps {
-  activeLabel?: string;
-  onSelectLabel?: (label: string) => void;
-  onNext?: () => void;
-  onPrev?: () => void;
-}
-
-const LabellerToolbar = (props: LabellerToolbarProps) => {
-  const { activeLabel, onSelectLabel, onNext, onPrev } = props;
-  return (
-    <div className="flex items-center justify-center p-4 rounded-lg gap-2">
-      <Button variant="outline" size="icon" onClick={onPrev}>
-        <ChevronLeftIcon size={14} />
-      </Button>
-      <div className="flex-1" />
-
-      {DEFAULT_UI_LABELS_ARRAY.map((label, index) => (
-        <Badge
-          key={label.value}
-          onClick={() => onSelectLabel?.(label.value)}
-          variant="outline"
-          className={cn({
-            "cursor-pointer transition-all": true,
-            "bg-primary/10": activeLabel === label.value,
-          })}
-        >
-          {index + 1}. {label.label}
-          <div
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: label.color }}
-          />
-        </Badge>
-      ))}
-      <div className="flex-1" />
-      <Button variant="outline" size="icon" onClick={onNext}>
-        <ChevronRightIcon size={14} />
-      </Button>
     </div>
   );
 };

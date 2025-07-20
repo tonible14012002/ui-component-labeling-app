@@ -32,16 +32,17 @@ export const LabellingView = (props: LabellingViewProps) => {
     (bboxes: IBbox[]) => {
       onImagesChanged?.(
         images?.map((img) => {
-          if (img.name !== selectedImage?.name) return img;
+          if (img.key !== selectedImage?.key) return img;
           console.log("Saving bboxs for image:", img.name, bboxes);
           return {
             ...img,
             groundTruth: bboxes,
+            isDone: true,
           };
         }) ?? []
       );
     },
-    [images, onImagesChanged, selectedImage?.name]
+    [images, onImagesChanged, selectedImage?.key]
   );
 
   const onSelectImage = useCallback(
@@ -87,7 +88,9 @@ export const LabellingView = (props: LabellingViewProps) => {
         <ImageLabeller
           selectedImageFile={selectedImage?.file}
           bboxs={bboxs}
+          showDoneButton={!selectedImage?.isDone}
           onBboxChange={setBboxs}
+          onMarkDone={() => onSaveBbox(bboxs)}
           onNext={onNext}
           onPrev={onPrev}
         />

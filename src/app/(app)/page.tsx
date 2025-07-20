@@ -11,11 +11,23 @@ import {
   SparklesIcon,
 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, createGenId } from "@/lib/utils";
 import { LabellingView } from "@/components/labelling/LabellingView";
 import { IImageFile } from "@/schema/schema";
+import { stringToDownloadFile } from "@/utils/file";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+const genId = createGenId();
 
 export default function HomePage() {
   const [imageFiles, setImageFiles] = useState<IImageFile[]>();
@@ -25,6 +37,7 @@ export default function HomePage() {
     onDrop: (files: File[]) => {
       setImageFiles(
         files.map((file) => ({
+          key: file.name + genId(),
           file,
           name: file.name,
           size: file.size,
@@ -42,6 +55,51 @@ export default function HomePage() {
   });
 
   const isSelectedFile = Boolean(imageFiles?.length);
+  const handleExport = () => {
+    if (!imageFiles || imageFiles.length === 0) return;
+
+    const manual: any = [];
+    const llm: any = [];
+
+    imageFiles.forEach((img) => {
+      const item = {
+        name: img.name,
+        size: img.size,
+        type: img.file.type,
+        extension: img.extension,
+        isDone: img.isDone,
+      };
+      const groundTruth = img.groundTruth.filter(
+        (bbox) => bbox.author === "manual"
+      );
+      const llmBbox = img.groundTruth.filter((bbox) => bbox.author === "llm");
+      manual.push({
+        ...item,
+        groundTruth,
+      });
+      llm.push({
+        ...item,
+        groundTruth: llmBbox,
+      });
+    });
+
+    const data = JSON.stringify(
+      {
+        manual,
+        llm,
+      },
+      null,
+      2
+    );
+    const fileName = `${new Date().toISOString()}.json`;
+    stringToDownloadFile(data, fileName, "application/json");
+  };
+
+  const progress = useMemo(() => {
+    if (!imageFiles || imageFiles.length === 0) return 0;
+    const doneCount = imageFiles.filter((img) => img.isDone).length;
+    return (doneCount / imageFiles.length) * 100;
+  }, [imageFiles]);
 
   return (
     <ContainerLayout
@@ -77,16 +135,33 @@ export default function HomePage() {
             <FolderOpen />
             Upload Folder
           </Button>
-          <Button variant="secondary" size="sm">
-            <SparklesIcon />
-            Predict All
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="secondary" size="sm">
+                <SparklesIcon />
+                Predict All
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Feature not supported yet</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This feature is not implemented yet. Please check back later.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogTrigger asChild>
+                  <Button>Close</Button>
+                </AlertDialogTrigger>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <div className="flex-1" />
           <div className="w-[200px] flex items-center mr-4 gap-2">
             <span className="text-muted-foreground">Progress:</span>
-            <Progress value={20} />
+            <Progress value={progress} />
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExport}>
             <DownloadIcon />
             Export
           </Button>
