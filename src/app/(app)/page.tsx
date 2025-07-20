@@ -13,9 +13,12 @@ import {
 import { useDropzone } from "react-dropzone";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, createGenId } from "@/lib/utils";
 import { LabellingView } from "@/components/labelling/LabellingView";
 import { IImageFile } from "@/schema/schema";
+import { stringToDownloadFile } from "@/utils/file";
+
+const genId = createGenId()
 
 export default function HomePage() {
   const [imageFiles, setImageFiles] = useState<IImageFile[]>();
@@ -25,6 +28,7 @@ export default function HomePage() {
     onDrop: (files: File[]) => {
       setImageFiles(
         files.map((file) => ({
+          key: file.name + genId(),
           file,
           name: file.name,
           size: file.size,
@@ -42,6 +46,13 @@ export default function HomePage() {
   });
 
   const isSelectedFile = Boolean(imageFiles?.length);
+  const handleExport = () => {
+    if (!imageFiles || imageFiles.length === 0) return;
+
+    const data = JSON.stringify(imageFiles, null, 2);
+    const fileName = `${new Date().toISOString()}.json`;
+    stringToDownloadFile(data, fileName, "application/json");
+  }
 
   return (
     <ContainerLayout
@@ -86,7 +97,7 @@ export default function HomePage() {
             <span className="text-muted-foreground">Progress:</span>
             <Progress value={20} />
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExport}>
             <DownloadIcon />
             Export
           </Button>

@@ -28,13 +28,13 @@ export const ImageList = (props: ImageListProps) => {
       >
         <div className="absolute top-0 w-full bg-gradient-to-b h-3 from-background/100" />
         <div className="absolute bottom-0 w-full bg-gradient-to-t h-3 from-background/100" />
-        {images?.map((image) => (
+        {images?.map(({key, ...imageProps}) => (
           <ImageItem
-            key={image.name}
-            {...image}
+            key={key}
+            {...imageProps}
             onClick={onImageSelect}
-            isSelected={selectedImage?.name === image.name}
-            tempBbox={selectedImage?.name === image.name ? activeBbox : undefined}
+            isSelected={selectedImage?.key === key}
+            tempBbox={selectedImage?.key === key ? activeBbox : undefined}
           />
         ))}
       </ScrollArea>

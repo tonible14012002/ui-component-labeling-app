@@ -1,7 +1,8 @@
 import { Client } from "@/lib/client";
+import { detectionService } from "./detection";
 
 export const privateServices: Client[] = [
-
+    detectionService
 ]
 
 // FIXME: not used

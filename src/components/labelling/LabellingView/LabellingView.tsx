@@ -32,7 +32,7 @@ export const LabellingView = (props: LabellingViewProps) => {
     (bboxes: IBbox[]) => {
       onImagesChanged?.(
         images?.map((img) => {
-          if (img.name !== selectedImage?.name) return img;
+          if (img.key !== selectedImage?.key) return img;
           console.log("Saving bboxs for image:", img.name, bboxes);
           return {
             ...img,
@@ -41,7 +41,7 @@ export const LabellingView = (props: LabellingViewProps) => {
         }) ?? []
       );
     },
-    [images, onImagesChanged, selectedImage?.name]
+    [images, onImagesChanged, selectedImage?.key]
   );
 
   const onSelectImage = useCallback(
