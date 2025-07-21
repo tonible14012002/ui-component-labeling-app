@@ -3,6 +3,7 @@
 ## [Try Online](https://ui-component-labeling-app.vercel.app/)
 
 <img src="./public/screenshot.png">
+<img src="./public/screenshot2.png">
 
 ## Stack
 - [NextJS 15](https://nextjs.org/)
