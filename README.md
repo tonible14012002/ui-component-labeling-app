@@ -35,3 +35,8 @@ bun run  dev            # start development server
 bun run build           # build production bundle to 'dist' directly
 bun run lint            # Run eslint check
 ```
+
+## Evaluation
+
+Following the instruction of this repo:
+[https://github.com/tonible14012002/ui-labelling-evaluation](https://github.com/tonible14012002/ui-labelling-evaluation)
