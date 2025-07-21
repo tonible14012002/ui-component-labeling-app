@@ -3,6 +3,7 @@ import { OPENAI_API_KEY } from "../constants/envs";
 import {
   ChatPromptTemplate,
   SystemMessagePromptTemplate,
+  HumanMessagePromptTemplate,
 } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { JsonOutputParser } from "@langchain/core/output_parsers";
@@ -62,7 +63,7 @@ const systemMessage = SystemMessagePromptTemplate.fromTemplate(`
         "height": 10,
         "author": "llm",
         "score": 0.95,
-        "reasoning": "The is image size is 800x600, and I detected a button at (102, 113) with dimensions 50x10. The button is labeled 'Submit'."
+        "reasoning": "The button is labeled 'Submit'"
       }},
       {{
         "value": "checkbox",
@@ -73,7 +74,7 @@ const systemMessage = SystemMessagePromptTemplate.fromTemplate(`
         "height": 5,
         "author": "llm",
         "score": 0.90
-        "reasoning": "The checkbox is located at (122, 23) with dimensions 10x5. It is checked and labeled 'Accept Terms'"
+        "reasoning": "The checkbox is checked and labeled 'Remember me'"
       }}
     ],
   }}
@@ -81,15 +82,19 @@ const systemMessage = SystemMessagePromptTemplate.fromTemplate(`
   ## Now analyze the attached base64 image above and return the output.
 `);
 
+const humanMessage = HumanMessagePromptTemplate.fromTemplate(`
+{date}
+- The image resolution is {width}×{height}. All bounding boxes must match this exact scale.
+- Do not split, zoom, or internally resize the image.
+`);
+
 const jsonParser = new JsonOutputParser<DetectionResponse>();
 
 const chatPrompt = ChatPromptTemplate.fromMessages([
+  systemMessage,
+  humanMessage,
   new HumanMessage({
     content: [
-      {
-        type: "text",
-        text: new Date().toISOString() + "\n ### User Input:\n",
-      },
       {
         type: "image_url",
         image_url: {
@@ -98,7 +103,6 @@ const chatPrompt = ChatPromptTemplate.fromMessages([
       },
     ],
   }),
-  systemMessage,
 ]);
 
 const chain = RunnableSequence.from([chatPrompt, model, jsonParser]);

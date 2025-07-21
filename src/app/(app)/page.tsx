@@ -17,7 +17,7 @@ import { Card } from "@/components/ui/card";
 import { cn, createGenId } from "@/lib/utils";
 import { LabellingView } from "@/components/labelling/LabellingView";
 import { IBbox, IImageFile } from "@/schema/schema";
-import { downloadFile, stringToDownloadFile } from "@/utils/file";
+import { downloadFile } from "@/utils/file";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -198,7 +198,7 @@ function convertBbox(bbox: IBbox): any {
 }
 
 // Create ZIP file from list of images
-export async function generateAnnotationZip(
+async function generateAnnotationZip(
   images: IImageFile[]
 ): Promise<Blob> {
   const zip = new JSZip();

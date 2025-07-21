@@ -331,8 +331,8 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
       setIsDetecting?.(true);
 
       const MAX_VIEW_PORT = {
-        width: 512,
-        height: 512,
+        width: 500,
+        height: 500,
       };
       const { scale: resizeScale } = getScaleFitImageToViewport({
         imgSize: {

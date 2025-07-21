@@ -22,6 +22,7 @@ export const getScaleFitImageToViewport = (args: {
   } else {
     scale = Math.round((viewPortSize.height / imgSize.height) * 10) / 10;
   }
+  
   return {
     scale,
     isFitHorizontal,
