@@ -43,3 +43,17 @@ export type DetectRequestBody = {
   height: number;
   imageUrl: string
 }
+
+export type DateSampleOutput = {
+    id: string;
+    label: string;
+    value: string;
+    bbox: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    },
+    author: string;
+    score: number;
+}

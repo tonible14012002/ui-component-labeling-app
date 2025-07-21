@@ -17,6 +17,7 @@ export const LabellingView = (props: LabellingViewProps) => {
 
   const [bboxs, setBboxs] = useState<IBbox[]>([]);
   const isMobile = useIsMobile();
+  const [isDetecting, setIsDetecting] = useState<boolean>(false);
 
   useEffect(() => {
     setBboxs(selectedImage?.groundTruth ?? []);
@@ -93,6 +94,8 @@ export const LabellingView = (props: LabellingViewProps) => {
           onMarkDone={() => onSaveBbox(bboxs)}
           onNext={onNext}
           onPrev={onPrev}
+          isDetecting={isDetecting}
+          setIsDetecting={setIsDetecting}
         />
       </div>
       {!isMobile && (
@@ -102,6 +105,7 @@ export const LabellingView = (props: LabellingViewProps) => {
             activeBbox={bboxs}
             onImageSelect={onSelectImage}
             selectedImage={selectedImage}
+            disabled={isDetecting}
           />
         </div>
       )}
