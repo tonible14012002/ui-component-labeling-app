@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { RainbowButton } from "@/components/ui/rainbow-button";
 import {
   SparklesIcon,
   SquareDashedMousePointer,
@@ -19,6 +18,7 @@ interface LabellerToolbarProps {
   currentMode: string;
   onScaleUp?: () => void;
   onScaleDown?: () => void;
+  isDetecting?: boolean;
 }
 
 export const LabellerToolbar = (props: LabellerToolbarProps) => {
@@ -30,12 +30,19 @@ export const LabellerToolbar = (props: LabellerToolbarProps) => {
     currentMode,
     onScaleDown,
     onScaleUp,
+    isDetecting,
   } = props;
   return (
     <div className="flex flex-col items-center pt-16 w-8 gap-3 mr-6 rounded-l-lg ml-1">
-      <RainbowButton size="icon" variant="outline" onClick={handleDetection}>
+      <Button
+        size="icon"
+        variant="outline"
+        onClick={handleDetection}
+        disabled={isDetecting}
+        className="relative"
+      >
         <SparklesIcon size={14} />
-      </RainbowButton>
+      </Button>
 
       <Button
         size="icon"
@@ -63,19 +70,11 @@ export const LabellerToolbar = (props: LabellerToolbarProps) => {
       >
         <Crosshair size={14} />
       </Button>
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={onScaleUp}
-      >
+      <Button variant="outline" size="icon" onClick={onScaleUp}>
         <ZoomIn size={14} />
       </Button>
 
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={onScaleDown}
-      >
+      <Button variant="outline" size="icon" onClick={onScaleDown}>
         <ZoomOut size={14} />
       </Button>
     </div>

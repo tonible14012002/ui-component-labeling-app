@@ -21,3 +21,11 @@ export const stringToDownloadFile = (data: string, fileName: string, type: FileT
     URL.revokeObjectURL(url);
 
 } 
+export const downloadFile = (file: Blob, fileName: string) => {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+}

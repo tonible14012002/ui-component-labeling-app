@@ -8,10 +8,11 @@ interface ImageListProps {
   onImageSelect?: (name: string) => void;
   selectedImage?: IImageFile;
   activeBbox?: IBbox[];
+  disabled?: boolean;
 }
 
 export const ImageList = (props: ImageListProps) => {
-  const { images, onImageSelect, selectedImage, activeBbox } = props;
+  const { images, onImageSelect, selectedImage, activeBbox, disabled } = props;
   return (
     <div className="rounded-lg flex flex-col h-full overflow-hidden">
       <div className="p-4 flex items-center justify-between">
@@ -35,6 +36,7 @@ export const ImageList = (props: ImageListProps) => {
             onClick={onImageSelect}
             isSelected={selectedImage?.key === key}
             tempBbox={selectedImage?.key === key ? activeBbox : undefined}
+            disabled={disabled}
           />
         ))}
       </ScrollArea>

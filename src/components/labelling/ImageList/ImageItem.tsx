@@ -7,6 +7,7 @@ interface ImageItemProps extends IImageFile {
   onClick?: (name: string) => void;
   isSelected?: boolean;
   tempBbox?: IBbox[];
+  disabled?: boolean;
 }
 
 export const ImageItem = (props: ImageItemProps) => {
@@ -19,9 +20,11 @@ export const ImageItem = (props: ImageItemProps) => {
     tempBbox,
     groundTruth,
     isDone,
+    disabled,
   } = props;
 
   const handleClick = () => {
+    if (disabled) return;
     onClick?.(name);
   };
 
@@ -32,6 +35,7 @@ export const ImageItem = (props: ImageItemProps) => {
         "transition-colors duration-200 ease-in-out",
         {
           "bg-accent": isSelected,
+          "opacity-50": disabled,
         }
       )}
       onClick={handleClick}

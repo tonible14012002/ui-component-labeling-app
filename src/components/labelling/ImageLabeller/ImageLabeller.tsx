@@ -6,13 +6,13 @@ import { XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { detectionService } from "@/apis/detection";
 import { TagSelectorBar } from "./TagSelectorBar1";
-import { stringToDownloadFile } from "@/utils/file";
 import { LabellerToolbar } from "./LabellerToolbar";
 import { MODE } from "./const";
 import { useLabellerKeyBinding } from "./useKeyBinding";
 import { useResponsiveCanvas } from "./useResponsiveCanvas";
 import { getScaleFitImageToViewport, resizeBase64Image } from "@/utils/image";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 interface ImageLabellerProps {
   selectedImageFile?: File;
@@ -23,6 +23,8 @@ interface ImageLabellerProps {
   onPrev?: () => void;
   onMarkDone?: () => void;
   showDoneButton?: boolean;
+  isDetecting?: boolean;
+  setIsDetecting?: (isDetecting: boolean) => void;
 }
 
 type ModeType = (typeof MODE)[keyof typeof MODE];
@@ -39,6 +41,8 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
     onPrev,
     onMarkDone,
     showDoneButton,
+    isDetecting,
+    setIsDetecting,
   } = props;
   const [activeTag, setActiveTag] = useState<string>(
     DEFAULT_UI_TAGS.BUTTON.value
@@ -321,12 +325,10 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
     if (!selectedImageFile) {
       return;
     }
-
-    console.log("Running detection on:", selectedImageFile.name);
-
     const reader = new FileReader();
     reader.onload = async (_) => {
       const base64Str = reader.result as string;
+      setIsDetecting?.(true);
 
       const MAX_VIEW_PORT = {
         width: 512,
@@ -352,13 +354,6 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
         imgNaturalSize.height * resizeScale
       );
 
-      stringToDownloadFile(resizedImgUrl as string, "image.txt");
-      console.log("Detection response:", {
-        naturalSize: imgNaturalSize,
-        resizeScale: resizeScale,
-        data: resp.data,
-      });
-
       const detectedBboxes = resp.data.detection.map(
         (box) =>
           ({
@@ -374,6 +369,7 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
           } as IBbox)
       );
       onBboxChange?.([...(bboxs ?? []), ...detectedBboxes]);
+      setIsDetecting?.(false);
     };
 
     reader.readAsDataURL(selectedImageFile);
@@ -441,6 +437,7 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
         currentMode={currentMode}
         onScaleDown={() => setScale((prev) => Math.max(prev - 0.1, 0.1))}
         onScaleUp={() => setScale((prev) => Math.min(prev + 0.1, 8))}
+        isDetecting={isDetecting}
       />
 
       <div className="flex-1 h-full flex flex-col">
@@ -465,6 +462,7 @@ export const ImageLabeller = (props: ImageLabellerProps) => {
             </Button>
           )}
         </div>
+        {isDetecting && <Progress indeterminate className="h-[4px]" />}
         <div
           className={cn("relative flex-1 bg-accent overflow-hidden border")}
           ref={viewportRef}

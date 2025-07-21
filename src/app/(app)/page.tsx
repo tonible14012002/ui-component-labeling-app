@@ -3,6 +3,7 @@
 import { ContainerLayout } from "@/components/common/ContainerLayout";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import JSZip from "jszip";
 import {
   ChevronDown,
   ChevronUp,
@@ -15,8 +16,8 @@ import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { cn, createGenId } from "@/lib/utils";
 import { LabellingView } from "@/components/labelling/LabellingView";
-import { IImageFile } from "@/schema/schema";
-import { stringToDownloadFile } from "@/utils/file";
+import { IBbox, IImageFile } from "@/schema/schema";
+import { downloadFile, stringToDownloadFile } from "@/utils/file";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -55,44 +56,11 @@ export default function HomePage() {
   });
 
   const isSelectedFile = Boolean(imageFiles?.length);
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!imageFiles || imageFiles.length === 0) return;
-
-    const manual: any = [];
-    const llm: any = [];
-
-    imageFiles.forEach((img) => {
-      const item = {
-        name: img.name,
-        size: img.size,
-        type: img.file.type,
-        extension: img.extension,
-        isDone: img.isDone,
-      };
-      const groundTruth = img.groundTruth.filter(
-        (bbox) => bbox.author === "manual"
-      );
-      const llmBbox = img.groundTruth.filter((bbox) => bbox.author === "llm");
-      manual.push({
-        ...item,
-        groundTruth,
-      });
-      llm.push({
-        ...item,
-        groundTruth: llmBbox,
-      });
-    });
-
-    const data = JSON.stringify(
-      {
-        manual,
-        llm,
-      },
-      null,
-      2
-    );
-    const fileName = `${new Date().toISOString()}.json`;
-    stringToDownloadFile(data, fileName, "application/json");
+    const zipBlob = await generateAnnotationZip(imageFiles);
+    
+    downloadFile(zipBlob, "annotations.zip");
   };
 
   const progress = useMemo(() => {
@@ -210,4 +178,68 @@ export default function HomePage() {
       )}
     </ContainerLayout>
   );
+}
+
+// Converts IBbox to annotation format
+function convertBbox(bbox: IBbox): any {
+  return {
+    id: `${bbox.author}-${bbox.key}`,
+    label: bbox.label,
+    value: bbox.value,
+    bbox: {
+      x: bbox.x,
+      y: bbox.y,
+      width: bbox.width,
+      height: bbox.height,
+    },
+    author: bbox.author,
+    score: bbox.score ?? 1.0,
+  };
+}
+
+// Create ZIP file from list of images
+export async function generateAnnotationZip(
+  images: IImageFile[]
+): Promise<Blob> {
+  const zip = new JSZip();
+
+  for (const image of images) {
+    const baseFileName = image.name.replace(/\.[^/.]+$/, ""); // removes extension
+    const imageInfo = {
+      id: image.key,
+      name: image.name,
+    };
+
+    // === Ground Truth ===
+    const groundTruthAnnotations = image.groundTruth
+      .filter((bbox) => bbox.author === "manual")
+      .map((bbox) => convertBbox(bbox));
+    const groundTruthJson = JSON.stringify(
+      {
+        image: imageInfo,
+        annotations: groundTruthAnnotations,
+      },
+      null,
+      2
+    );
+    zip.file(`ground_truth/${baseFileName}.json`, groundTruthJson);
+
+    // === Prediction ===
+    const predictions = image.groundTruth
+      .filter((bbox) => bbox.author === "llm")
+      .map((bbox) => convertBbox(bbox));
+
+    const predictionAnnotations = predictions.map((bbox) => convertBbox(bbox));
+    const predictionJson = JSON.stringify(
+      {
+        image: imageInfo,
+        annotations: predictionAnnotations,
+      },
+      null,
+      2
+    );
+    zip.file(`prediction/${baseFileName}.json`, predictionJson);
+  }
+
+  return zip.generateAsync({ type: "blob" });
 }
