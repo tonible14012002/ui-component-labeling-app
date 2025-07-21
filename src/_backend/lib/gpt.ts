@@ -24,7 +24,7 @@ const systemMessage = SystemMessagePromptTemplate.fromTemplate(`
   Your task is to detect and return the following UI element types from the image along with **precise** bounding box coordinates (based on the image's **original resolution**) and confidence scores:
 
   - 'button'
-  - 'checkbox'  
+  - 'radio'  
   - 'input'  
   - 'dropdown'
 
@@ -66,15 +66,15 @@ const systemMessage = SystemMessagePromptTemplate.fromTemplate(`
         "reasoning": "The button is labeled 'Submit'"
       }},
       {{
-        "value": "checkbox",
-        "label": "Checkbox",
+        "value": "radio",
+        "label": "Radio",
         "x": 122,
         "y": 23,
         "width": 10,
         "height": 5,
         "author": "llm",
-        "score": 0.90
-        "reasoning": "The checkbox is checked and labeled 'Remember me'"
+        "score": 0.90,
+        "reasoning": "The radio button is checked and labeled 'Remember me'"
       }}
     ],
   }}
